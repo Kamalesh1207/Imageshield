@@ -112,6 +112,11 @@ def analyze_image(data: bytes, include_heatmap: bool = False) -> dict:
     heat = f["ela"].pop("heatmap_png_b64", None)
     result = {
         **verdict,
+        # A heuristic signal is not a neural classifier probability.
+        "ai_generated_likelihood": None if model is None else round(model, 3),
+        "forensic_ai_signal": round(verdict["ai_generated_likelihood"], 3),
+        "ai_classifier_status": "available" if model is not None else "unavailable",
+        "ai_classifier_model": config.HF_MODEL_ID or None,
         "metadata": meta,
         "forensics": f,
         "ml_model_score": None if model is None else round(model, 3),
