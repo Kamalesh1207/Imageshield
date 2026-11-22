@@ -1,0 +1,37 @@
+name: ImageShield checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, production-hardening]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGESHIELD_ENV: development
+      IMAGESHIELD_API_KEYS: test-key
+      IMAGESHIELD_WM_KEY: test-watermark-key-for-ci-only
+      PYTHONPATH: imageshield
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: imageshield/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r imageshield/requirements.txt
+      - name: Compile Python modules
+        run: python -m compileall -q imageshield/app
+      - name: Run API tests
+        working-directory: imageshield
+        run: pytest -q
