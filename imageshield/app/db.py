@@ -1,4 +1,4 @@
-"""SQLite-only persistence for local development; not a PostgreSQL adapter."""
+"""SQLite persistence (swap for Postgres in production; the SQL is portable enough)."""
 from __future__ import annotations
 
 import sqlite3
