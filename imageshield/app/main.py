@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from . import config, db
@@ -29,7 +30,21 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="ImageShield AI 2.0", version="2.0.0", lifespan=lifespan,
               description="Personal image misuse early-warning & digital evidence assistant.")
 if config.CORS_ORIGINS:
-    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["GET", "POST"],
+                       allow_headers=["Content-Type", "X-API-Key"], allow_credentials=False)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Cache-Control", "no-store")
+    if config.IS_PRODUCTION:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 # ------------------------------------------------------------------ auth + rate limit
@@ -235,3 +250,9 @@ def report_draft(case_id: str, country: str = "IN", owner: str = Depends(current
 def reporting_guide(platform: str = "other", country: str = "IN", content_type: str = "ai_generated_or_edited",
                     is_minor: bool = False, owner: str = Depends(current_owner)):
     return reporting.guide(platform, country, content_type, is_minor)
+
+
+# Serve the bundled dashboard from the same origin for a simple hackathon demo.
+_FRONTEND_DIR = config.DATA_DIR.parent / "frontend"
+if _FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: imageshield-ai-demo
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: imageshield
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: IMAGESHIELD_ENV
+        value: production
+      - key: IMAGESHIELD_API_KEYS
+        sync: false
+      - key: IMAGESHIELD_WM_KEY
+        sync: false
+      - key: IMAGESHIELD_VAULT_KEY
+        sync: false
