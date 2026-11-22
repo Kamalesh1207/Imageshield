@@ -29,7 +29,21 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="ImageShield AI 2.0", version="2.0.0", lifespan=lifespan,
               description="Personal image misuse early-warning & digital evidence assistant.")
 if config.CORS_ORIGINS:
-    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["GET", "POST"],
+                       allow_headers=["Content-Type", "X-API-Key"], allow_credentials=False)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Cache-Control", "no-store")
+    if config.IS_PRODUCTION:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 # ------------------------------------------------------------------ auth + rate limit
@@ -102,7 +116,7 @@ def watermark_embed(file: UploadFile = File(...), label: str = Form("", max_leng
         marked.save(buf, "PNG")
         mime, ext = "image/png", "png"
     return Response(buf.getvalue(), media_type=mime, headers={
-        "X-Watermark-Id": wm_id, "Content-Disposition": f'attachment; filename="protected.{ext}"'})
+        "X-Watermark-Id": wm_id, "Content-Disposition": f'attachment; filename="protected.{ext}"})
 
 
 @app.post("/v1/watermark/detect")
@@ -119,7 +133,7 @@ def scrub(file: UploadFile = File(...), owner: str = Depends(current_owner)):
     img, fmt = load_image(_read_upload(file))
     out, mime = alerts_svc.scrub_metadata(img, fmt)
     ext = {"image/png": "png", "image/webp": "webp"}.get(mime, "jpg")
-    return Response(out, media_type=mime, headers={"Content-Disposition": f'attachment; filename="clean.{ext}"'})
+    return Response(out, media_type=mime, headers={"Content-Disposition": f'attachment; filename="clean.{ext}'})
 
 
 @app.get("/v1/alerts")
@@ -170,6 +184,7 @@ def risk_assess_with_image(file: UploadFile = File(...), questionnaire_json: str
     except ValidationError as e:
         raise HTTPException(422, e.errors(include_url=False, include_context=False))
     analysis = pipeline.full_analysis(owner, _read_upload(file))
+    analysis.pop("ela_heatmap_png_b64", None)
     return {"risk": risk.assess(q, analysis, analysis["registry_matches"]), "image_verdict": analysis["verdict"]}
 
 
@@ -221,7 +236,7 @@ def verify_case(case_id: str, owner: str = Depends(current_owner)):
 @app.get("/v1/cases/{case_id}/export")
 def export_case(case_id: str, owner: str = Depends(current_owner)):
     return Response(evidence.export_zip(owner, case_id), media_type="application/zip",
-                    headers={"Content-Disposition": f'attachment; filename="imageshield_case_{case_id[:8]}.zip"'})
+                    headers={"Content-Disposition": f'attachment; filename="imageshield_case_{case_id[:8]}.zip"')
 
 
 @app.get("/v1/cases/{case_id}/report-draft", response_class=PlainTextResponse)
