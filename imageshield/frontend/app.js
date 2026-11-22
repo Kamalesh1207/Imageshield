@@ -34,7 +34,8 @@
       if(file.type.startsWith('image/')){img.src=previewUrl;img.hidden=false;kind.textContent='Image preview — this file has not been uploaded yet.'}
       else{vid.src=previewUrl;vid.hidden=false;kind.textContent='Video preview — this file has not been uploaded yet.'}
     }
-    dz.addEventListener('click',e=>{if(e.target.closest('button'))return;inp.click()});
+    dz.addEventListener('click',e=>{if(e.target===inp||e.target.closest('button'))return;inp.click()});
+    inp.addEventListener('click',e=>e.stopPropagation());
     dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='#a99aff'});
     dz.addEventListener('dragleave',()=>dz.style.borderColor='');
     dz.addEventListener('drop',e=>{e.preventDefault();dz.style.borderColor='';if(e.dataTransfer.files.length){inp.files=e.dataTransfer.files;updateFile()}});
