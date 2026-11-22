@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from . import config, db
@@ -249,3 +250,9 @@ def report_draft(case_id: str, country: str = "IN", owner: str = Depends(current
 def reporting_guide(platform: str = "other", country: str = "IN", content_type: str = "ai_generated_or_edited",
                     is_minor: bool = False, owner: str = Depends(current_owner)):
     return reporting.guide(platform, country, content_type, is_minor)
+
+
+# Serve the bundled dashboard from the same origin for a simple hackathon demo.
+_FRONTEND_DIR = config.DATA_DIR.parent / "frontend"
+if _FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")
